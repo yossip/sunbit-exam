@@ -114,7 +114,10 @@ graph TD
 - **Amazon S3**: Secure object storage for uploading and storing KYC documentation (IDs, dental invoices). Configured with strict IAM policies and Object Lock for compliance.
 
 ### Event Streaming & Async Processing
-- **Amazon MSK (Managed Streaming for Apache Kafka)** or **Amazon SQS/SNS**: Event-driven architecture backbones. Used for decoupling microservices—for example, when a user applies for credit, an event is fired to the AI engine for scoring via Kafka.
+- **Amazon MSK (Managed Streaming for Apache Kafka) / Amazon EventBridge**: Acts as the central nervous system for the BNPL platform. In a financial/AI architecture, it serves three mandatory purposes:
+  1. **Asynchronous Decoupling (Resilience)**: Real-time ML scoring or intense ledger updates can cause HTTP timeouts if done synchronously. Instead, the API instantly queues an `ApplicationReceived` event to MSK and immediately responds to the merchant's POS system. If the SageMaker endpoint or secondary databases experience temporary outages, no customer applications are dropped—they safely queue in Kafka until the services recover.
+  2. **Immutable Audit Ledger (Compliance)**: Financial regulators require proof of *why* and *when* credit was issued. Every state change (e.g., `Submitted`, `RiskScored`, `Approved`, `Funded`) is appended to MSK as an immutable event log, preventing tampering.
+  3. **Data Pipeline for ML (SageMaker)**: AI risk models require continuous feedback to remain accurate. MSK streams all raw POS transaction events (and eventual loan default data) directly into an S3 Data Lake (often via Kinesis Firehose). The Data Science teams use this historical stream to retrain and deploy better SageMaker models without ever touching or impacting the live API production databases.
 
 ### AI & Insights
 - **Amazon SageMaker**: Since Sunbit relies on AI insights for instant credit limits, SageMaker is used to build, train, and deploy machine learning models. Microservices running in EKS communicate with SageMaker endpoints via internal VPC routing for real-time credit scoring (millisecond latency).
