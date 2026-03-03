@@ -10,23 +10,3 @@ spec:
       port: 80
       targetPort: 8000
   type: ClusterIP # We use ClusterIP because we expose it via Ingress (ALB)
----
-# Horizontal Pod Autoscaler based on CPU
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: sunbit-pos-api-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: sunbit-pos-api
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70

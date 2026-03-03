@@ -13,5 +13,8 @@ eks_cluster_version    = "1.31"
 karpenter_cpu_limit    = "100"
 karpenter_memory_limit = "500Gi"
 
+hpa_min_replicas       = 2
+hpa_max_replicas       = 5
+
 api_url               = "staging-api.sunbit.com"
 cognito_domain_prefix = "sunbit-pos-auth-staging"

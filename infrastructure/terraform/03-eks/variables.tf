@@ -41,3 +41,15 @@ variable "karpenter_memory_limit" {
   type        = string
   default     = "1000Gi"
 }
+
+variable "hpa_min_replicas" {
+  description = "Minimum number of API Pod replicas"
+  type        = number
+  default     = 3
+}
+
+variable "hpa_max_replicas" {
+  description = "Maximum number of API Pod replicas"
+  type        = number
+  default     = 10
+}

@@ -104,3 +104,38 @@ resource "kubernetes_manifest" "pos_nodepool" {
 # `capacity-type` weightings (or relying on native EKS Auto capacity fallbacks).
 # Alternatively, in EKS Auto Mode, you configure specific Pod topology spread 
 # constraints across capacity types in the Deployment.
+
+# --- Horizontal Pod Autoscaler (HPA) ---
+# Managed via Terraform to allow injecting environment-specific min/max scaling limits
+
+resource "kubernetes_manifest" "pos_api_hpa" {
+  manifest = {
+    apiVersion = "autoscaling/v2"
+    kind       = "HorizontalPodAutoscaler"
+    metadata = {
+      name      = "sunbit-pos-api-hpa"
+      namespace = "default"
+    }
+    spec = {
+      scaleTargetRef = {
+        apiVersion = "apps/v1"
+        kind       = "Deployment"
+        name       = "sunbit-pos-api"
+      }
+      minReplicas = var.hpa_min_replicas
+      maxReplicas = var.hpa_max_replicas
+      metrics = [
+        {
+          type = "Resource"
+          resource = {
+            name = "cpu"
+            target = {
+              type = "Utilization"
+              averageUtilization = 70
+            }
+          }
+        }
+      ]
+    }
+  }
+}

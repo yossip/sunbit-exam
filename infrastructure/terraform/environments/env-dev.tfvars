@@ -13,6 +13,9 @@ eks_cluster_version    = "1.31"
 karpenter_cpu_limit    = "20"
 karpenter_memory_limit = "64Gi"
 
+hpa_min_replicas       = 1
+hpa_max_replicas       = 3
+
 api_url               = "dev-api.sunbit-interview.com"
 cognito_domain_prefix = "sunbit-pos-auth-dev-yossi"
 

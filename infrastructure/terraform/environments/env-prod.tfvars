@@ -13,5 +13,8 @@ eks_cluster_version    = "1.31"
 karpenter_cpu_limit    = "1000"
 karpenter_memory_limit = "1000Gi"
 
+hpa_min_replicas       = 3
+hpa_max_replicas       = 20
+
 api_url               = "api.sunbit.com"
 cognito_domain_prefix = "sunbit-pos-auth-prod"
