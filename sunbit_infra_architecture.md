@@ -108,10 +108,10 @@ graph TD
   - Enables advanced traffic routing strategies like Blue-Green and Canary deployments.
 
 ### Data & State Layer
-- **Amazon Aurora PostgreSQL**: High-performance, highly available relational database for storing transactional data (user profiles, loan ledgers, payment schedules). Multi-AZ deployment with Read Replicas for scaling read-heavy query loads.
+- **Amazon Aurora PostgreSQL**: High-performance, highly available relational database for storing transactional data (user profiles, structured KYC data, loan ledgers, payment schedules). Multi-AZ deployment with Read Replicas for scaling read-heavy query loads.
 - **Amazon DynamoDB**: Fast, managed NoSQL database for rapid lookups, user session states, and acting as a feature store for the AI engine.
 - **Amazon ElastiCache (Redis)**: In-memory caching to speed up read access for frequently accessed data, reducing load on Aurora.
-- **Amazon S3**: Secure object storage for uploading and storing KYC documentation (IDs, dental invoices). Configured with strict IAM policies and Object Lock for compliance.
+- **Amazon S3**: Secure object storage for uploading and storing unstructured KYC (Know Your Customer) documentation (scans of IDs, utility bills, dental invoices). Configured with strict IAM policies and Object Lock to meet financial data retention compliance.
 
 ### Event Streaming & Async Processing
 - **Amazon MSK (Managed Streaming for Apache Kafka) / Amazon EventBridge**: Acts as the central nervous system for the BNPL platform. In a financial/AI architecture, it serves three mandatory purposes:
