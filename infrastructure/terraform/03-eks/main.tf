@@ -134,8 +134,43 @@ resource "kubernetes_manifest" "pos_api_hpa" {
               averageUtilization = 70
             }
           }
+        },
+        # More sophisticated Datadog-based custom metric (Network Latency)
+        {
+          type = "Object"
+          object = {
+            describedObject = {
+              apiVersion = "datadoghq.com/v1alpha1"
+              kind       = "DatadogMetric"
+              name       = "pos-api-latency"
+            }
+            metric = {
+              name = "pos-api-latency"
+            }
+            target = {
+              type  = "Value"
+              value = "100m" # Target 100 milliseconds average latency before triggering scale-up
+            }
+          }
         }
       ]
+    }
+  }
+}
+
+# --- Datadog Metric Query ---
+# Exposes a raw Datadog query to the Kubernetes HPA Controller (via the Datadog Cluster Agent)
+resource "kubernetes_manifest" "pos_api_datadog_metric" {
+  manifest = {
+    apiVersion = "datadoghq.com/v1alpha1"
+    kind       = "DatadogMetric"
+    metadata = {
+      name      = "pos-api-latency"
+      namespace = "default"
+    }
+    spec = {
+      # Resolves to a raw query calculating average network latency for this specific service and environment
+      query = "avg:network.latency{service:pos-api,env:${var.environment}}"
     }
   }
 }
