@@ -10,8 +10,9 @@ enable_waf             = true  # Required for Production PCI-DSS compliance
 aurora_instance_count  = 3     # Multi-AZ Highly Available
 aurora_instance_class  = "db.r6g.2xlarge" # Memory Optimized for high IOPS
 eks_cluster_version    = "1.31"
-karpenter_cpu_limit    = "1000"
-karpenter_memory_limit = "1000Gi"
+karpenter_cpu_limit      = "1000"
+karpenter_memory_limit   = "1000Gi"
+karpenter_capacity_types = ["spot", "on-demand"] # HA mix: Allows Karpenter to provision both for resilient 80/20 splits
 
 hpa_min_replicas       = 3
 hpa_max_replicas       = 20

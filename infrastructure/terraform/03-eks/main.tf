@@ -64,7 +64,7 @@ resource "kubernetes_manifest" "pos_nodepool" {
             {
               key      = "karpenter.sh/capacity-type"
               operator = "In"
-              values   = ["spot", "on-demand"]
+              values   = var.karpenter_capacity_types
             },
             {
               key      = "kubernetes.io/arch"

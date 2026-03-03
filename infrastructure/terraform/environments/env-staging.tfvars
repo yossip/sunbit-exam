@@ -10,8 +10,9 @@ enable_waf             = true  # Validating WAF rules before prod
 aurora_instance_count  = 2     # Matching Production Architecture but scaled down
 aurora_instance_class  = "db.r6g.large"
 eks_cluster_version    = "1.31"
-karpenter_cpu_limit    = "100"
-karpenter_memory_limit = "500Gi"
+karpenter_cpu_limit      = "100"
+karpenter_memory_limit   = "500Gi"
+karpenter_capacity_types = ["spot"] # Cost aware: Staging uses only Spot instances
 
 hpa_min_replicas       = 2
 hpa_max_replicas       = 5

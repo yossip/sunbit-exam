@@ -53,3 +53,9 @@ variable "hpa_max_replicas" {
   type        = number
   default     = 10
 }
+
+variable "karpenter_capacity_types" {
+  description = "Allowed EC2 capacity types for the environment (e.g., [\"spot\"] for Dev, [\"spot\", \"on-demand\"] for Prod)"
+  type        = list(string)
+  default     = ["spot", "on-demand"]
+}
