@@ -59,6 +59,33 @@ spec:
                         - pos-api
                 topologyKey: kubernetes.io/hostname
 
+      initContainers:
+        - name: validate-cluster-apis
+          image: bitnami/kubectl:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export HOME=/tmp
+              echo "Validating required Kubernetes APIs for EKS Auto Mode..."
+              kubectl api-versions | grep -q 'karpenter.sh' || { echo "CRITICAL: Karpenter API missing. Node provisioning limits will fail."; exit 1; }
+              kubectl api-versions | grep -q 'autoscaling/v2' || { echo "CRITICAL: autoscaling/v2 missing. HPA scaling will fail."; exit 1; }
+              echo "All required APIs are present! Proceeding with application startup."
+          
+          # Match the strict security context of the main container
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          
+          # Needed for kubectl cache when root filesystem is read-only
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
       containers:
         - name: pos-api
           image: ECR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sunbit-pos-api:latest
