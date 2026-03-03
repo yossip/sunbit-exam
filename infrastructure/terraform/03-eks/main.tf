@@ -39,7 +39,62 @@ module "eks" {
   # EKS Auto Mode eliminates the need for manual `eks_managed_node_groups`
   # The 80% Spot / 20% On-Demand split is handled via Karpenter NodePool manifests
   # deployed *into* the cluster after creation.
+
+  # EKS Addons - Native controllers
+  cluster_addons = {
+    aws-ebs-csi-driver = {
+      most_recent              = true
+      service_account_role_arn = module.ebs_csi_irsa_role.iam_role_arn
+    }
+    coredns = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+  }
 }
+
+# --- Essential Controllers (Route53 & EBS) via IRSA (Least Privilege IAM) ---
+
+# 1. AWS EBS CSI Driver IRSA
+# Allows the cluster to dynamically provision Elastic Block Store (EBS) volumes for persistent state
+module "ebs_csi_irsa_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.0"
+
+  role_name             = "ebs-csi-${var.environment}"
+  attach_ebs_csi_policy = true
+
+  oidc_providers = {
+    ex = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
+    }
+  }
+}
+
+# 2. ExternalDNS (Route 53 Controller) IRSA
+# Automatically creates/updates Route 53 DNS records when Kubernetes Ingresses or Services are created
+module "external_dns_irsa_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.0"
+
+  role_name                     = "external-dns-${var.environment}"
+  attach_external_dns_policy    = true
+  external_dns_hosted_zone_arns = ["arn:aws:route53:::hostedzone/*"] # Best practice: lock this to a specific Zone ID
+
+  oidc_providers = {
+    ex = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:external-dns"]
+    }
+  }
+}
+
 
 # --- Kubernetes Manifests for EKS Auto Mode (Karpenter NodePools) ---
 # Note: In a real environment, you deploy these via kubectl, Helm, or GitOps. 

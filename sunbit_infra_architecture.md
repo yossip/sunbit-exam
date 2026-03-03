@@ -102,8 +102,11 @@ graph TD
 ### Compute & Orchestration (The Kubernetes Layer)
 - **Amazon EKS (Elastic Kubernetes Service)**: The core container orchestration platform running the microservices.
   - **Karpenter**: Highly efficient, intent-based cluster autoscaler that provisions the right-sized EC2 nodes in seconds based on pending pod requirements.
-- **Service Discovery**:
+- **Service Discovery & DNS**:
   - **CoreDNS**: Provides native Kubernetes DNS resolution for internal microservice-to-microservice communication (e.g., `pos-api.default.svc.cluster.local`).
+  - **ExternalDNS (Route 53 Controller)**: Automatically synchronizes Kubernetes `Ingress` endpoints (created by the ALB Controller) with **Amazon Route 53**. When an application is deployed, ExternalDNS instantly updates the public DNS records without manual network ticket requests.
+- **Persistent Storage**:
+  - **Amazon EBS CSI Driver**: Granularly manages block storage. If a pod requires a stateful disk (e.g., for local caching or specialized databases), the EBS CSI driver dynamically provisions AWS EBS volumes matching the pod's precise IOPs requirements.
 - **AWS Load Balancer Controller**: Dynamically provisions ALBs for ingress traffic routing from the edge to Kubernetes services.
 - **Service Mesh (Istio / Linkerd)**: 
   - Provides **mTLS** (mutual TLS) between all microservices to ensure data in transit within the cluster is fully encrypted.
