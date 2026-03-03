@@ -36,6 +36,18 @@ module "eks" {
 
   enable_irsa = true
 
+  # 2. OIDC for User Access Management (SSO for kubectl)
+  # Allows developers to authenticate to the cluster using Corporate SSO (Okta/Entra) instead of AWS IAM
+  cluster_identity_providers = {
+    corporate_sso = {
+      client_id      = var.corporate_oidc_client_id
+      issuer_url     = var.corporate_oidc_issuer_url
+      groups_claim   = "groups"
+      groups_prefix  = "sso:"
+      username_claim = "email"
+    }
+  }
+
   # EKS Auto Mode eliminates the need for manual `eks_managed_node_groups`
   # The 80% Spot / 20% On-Demand split is handled via Karpenter NodePool manifests
   # deployed *into* the cluster after creation.

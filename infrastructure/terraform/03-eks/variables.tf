@@ -59,3 +59,15 @@ variable "karpenter_capacity_types" {
   type        = list(string)
   default     = ["spot", "on-demand"]
 }
+
+variable "corporate_oidc_issuer_url" {
+  description = "The URL of the Corporate OIDC Identity Provider (e.g., Okta, Entra ID) for EKS access management"
+  type        = string
+  default     = "https://sso.sunbit.com"
+}
+
+variable "corporate_oidc_client_id" {
+  description = "The Client ID for the Corporate OIDC Identity Provider"
+  type        = string
+  default     = "k8s-cluster-client-id"
+}
