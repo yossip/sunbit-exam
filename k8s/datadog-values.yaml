@@ -1,0 +1,36 @@
+# Datadog Helm Chart Values (datadog-values.yaml)
+# Used to deploy the Datadog Agent to the EKS Cluster via GitOps or Helm
+
+datadog:
+  apiKeyExistingSecret: datadog-secret
+  appKeyExistingSecret: datadog-secret
+
+  # Enable Universal Service Monitoring (USM) and APM (Tracing)
+  apm:
+    portEnabled: true
+    # Instructs the agent to enable APM
+    instrumentation:
+      enabled: true
+
+  # Enable Logs Collection
+  logs:
+    enabled: true
+    containerCollectAll: true
+
+  # Enable EKS Network Performance Monitoring (NPM)
+  networkMonitoring:
+    enabled: true
+
+  # Cluster level integrations
+  clusterChecks:
+    enabled: true
+
+# Enable the Cluster Agent for Kubernetes State Metrics
+clusterAgent:
+  enabled: true
+  metricsProvider:
+    enabled: true
+
+# Enable Kube State Metrics Core to replace the third-party KSM
+kubeStateMetricsCore:
+  enabled: true

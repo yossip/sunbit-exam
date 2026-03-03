@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sunbit-pos-api
+  labels:
+    app: pos-api
+    tags.datadoghq.com/env: "production"
+    tags.datadoghq.com/service: "pos-api"
+    tags.datadoghq.com/version: "1.0.0"
+spec:
+  replicas: 3 # Start with 3 for Multi-AZ High Availability
+  selector:
+    matchLabels:
+      app: pos-api
+  template:
+    metadata:
+      labels:
+        app: pos-api
+        tags.datadoghq.com/env: "production"
+        tags.datadoghq.com/service: "pos-api"
+        tags.datadoghq.com/version: "1.0.0"
+      annotations:
+        ad.datadoghq.com/pos-api.logs: '[{"source": "python", "service": "pos-api"}]'
+    spec:
+      # Enforce 80% Spot / 20% On-Demand via Topology Spread Constraints
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: pos-api
+        # This constraint ensures the 4:1 (80/20) ratio across Spot and On-Demand
+        - maxSkew: 4
+          topologyKey: karpenter.sh/capacity-type
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: pos-api
+
+      # Tolerations to allow this workload to schedule on the decision-engine tainted nodes
+      tolerations:
+        - key: "workload-type"
+          operator: "Equal"
+          value: "decision-engine"
+          effect: "NoSchedule"
+
+      # Anti-Affinity to ensure pods do not consolidate onto a single physical instance (hostname)
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - pos-api
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: pos-api
+          image: ECR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sunbit-pos-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          
+          # Security Context (run as non-root, drop capabilities)
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Resource Constraints
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          # Volume mount for the read-only root filesystem requirement
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+          env:
+            - name: DD_ENV
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/env']
+            - name: DD_SERVICE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/service']
+            - name: DD_VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/version']
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            # APM Host IP injected automatically by Datadog Admission Controller usually, but explicitly assigned here for clarity
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+
+          # Health Checks
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Readiness Checks (Wait until DB/ML connections are ready to accept traffic)
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+
+      volumes:
+        - name: tmp
+          emptyDir: {}

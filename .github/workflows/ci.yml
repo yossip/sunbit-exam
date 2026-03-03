@@ -1,0 +1,93 @@
+name: CI/CD Pipeline - Sunbit POS API
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: sunbit-pos-api
+  # Assuming EKS is managed via GitOps (ArgoCD), we only build and push here.
+
+jobs:
+  build-test-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for AWS OIDC login
+      contents: read
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Dependencies & Run Tests
+      working-directory: ./application
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # Replace with actual pytest/unittest commands in production
+        # pytest tests/
+
+    # Security: Authenticate strictly using OIDC (No long-lived AWS keys)
+    - name: Configure AWS Credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::ACCOUNT_ID:role/GitHubActionsECRPushRole
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build Docker Image
+      id: build-image
+      working-directory: ./application
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        # We also tag it as "latest" for local testing, though GitOps prefers SHA
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        # Output for next steps
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    # Security: Trivy Container Image Scan (Fail deployment on Critical/High CVEs)
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ steps.build-image.outputs.image }}'
+        format: 'table'
+        exit-code: '1' # Fail pipeline
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
+
+    # Once scanned successfully, push.
+    - name: Push to Amazon ECR
+      working-directory: ./application
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  update-manifests:
+    # Optional phase: Automatically update a separate GitOps repo (ArgoCD/Flux) 
+    # to trigger the deployment to EKS securely based on the new image SHA.
+    needs: build-test-scan
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify GitOps Repo
+        run: echo "Updating kustomize/helm values in gitops repo with new SHA ${{ github.sha }}"

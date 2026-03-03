@@ -1,0 +1,122 @@
+# This manifest requires the Argo Rollouts Controller installed in the EKS cluster
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: sunbit-pos-api-rollout
+  labels:
+    app: pos-api
+    tags.datadoghq.com/env: "production"
+    tags.datadoghq.com/service: "pos-api"
+    tags.datadoghq.com/version: "1.0.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pos-api
+  template:
+    metadata:
+      labels:
+        app: pos-api
+        tags.datadoghq.com/env: "production"
+        tags.datadoghq.com/service: "pos-api"
+        tags.datadoghq.com/version: "1.0.0"
+      annotations:
+        ad.datadoghq.com/pos-api.logs: '[{"source": "python", "service": "pos-api"}]'
+    spec:
+      # Anti-Affinity to ensure pods do not consolidate onto a single physical instance (hostname)
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - pos-api
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: pos-api
+          image: ECR_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sunbit-pos-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          
+          # Security Context (run as non-root)
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Resource Constraints
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+          env:
+            - name: DD_ENV
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/env']
+            - name: DD_SERVICE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/service']
+            - name: DD_VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.datadoghq.com/version']
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+
+          # Health Checks
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+  
+  # Progressive Delivery (Canary) Strategy natively integrated with ArgoCD
+  strategy:
+    canary:
+      # Step 1: Send 20% of traffic to the new version
+      # Step 2: Pause and wait for manual approval (or automated Datadog metric checks)
+      # Step 3: Increase to 50%
+      # Step 4: Increase to 100%
+      steps:
+      - setWeight: 20
+      - pause: {} # Wait indefinitely until manually promoted via CLI/UI
+      - setWeight: 50
+      - pause: {duration: 1h} # Wait automated 1 hour soak time

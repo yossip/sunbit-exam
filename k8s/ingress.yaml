@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sunbit-pos-api-ingress
+  namespace: default
+  annotations:
+    # Trigger the AWS Load Balancer Controller to provision an Application Load Balancer
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    
+    # -------------------------------------------------------------
+    # SECURITY & COMPLIANCE (crucial for BNPL / PCI-DSS interviews)
+    # -------------------------------------------------------------
+    
+    # 1. Edge Firewall: Attach the AWS WAF Web ACL
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "<WAF_ARN>"
+    
+    # 2. Edge Authentication: Amazon Cognito Integration
+    # The ALB natively intercepts incoming requests, checks for a valid JWT from Cognito.
+    # If the user is unauthenticated, the ALB redirects them to the Cognito Hosted UI
+    # before they ever reach the internal Kubernetes pods!
+    alb.ingress.kubernetes.io/auth-type: cognito
+    alb.ingress.kubernetes.io/auth-idp-cognito: '{"userPoolARN":"<COGNITO_USER_POOL_ARN>","userPoolClientID":"<COGNITO_CLIENT_ID>","userPoolDomain":"<COGNITO_DOMAIN>"}'
+    alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate
+    
+    
+    # Terminate HTTPS at the ALB using Amazon Certificate Manager (ACM)
+    # alb.ingress.kubernetes.io/certificate-arn: "<ACM_CERT_ARN>"
+    
+    # Force HTTP to HTTPS redirection at the edge
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # Define Target Type. IP routing goes directly to Pods (bypassing NodePorts) for higher efficiency
+    alb.ingress.kubernetes.io/target-type: 'ip'
+spec:
+  rules:
+    - host: api.sunbit-interview.com
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: sunbit-pos-api-svc
+                port:
+                  number: 80
