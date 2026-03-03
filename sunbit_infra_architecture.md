@@ -102,7 +102,9 @@ graph TD
 ### Compute & Orchestration (The Kubernetes Layer)
 - **Amazon EKS (Elastic Kubernetes Service)**: The core container orchestration platform running the microservices.
   - **Karpenter**: Highly efficient, intent-based cluster autoscaler that provisions the right-sized EC2 nodes in seconds based on pending pod requirements.
-- **AWS Load Balancer Controller**: Dynamically provisions ALBs for ingress traffic routing to Kubernetes services.
+- **Service Discovery**:
+  - **CoreDNS**: Provides native Kubernetes DNS resolution for internal microservice-to-microservice communication (e.g., `pos-api.default.svc.cluster.local`).
+- **AWS Load Balancer Controller**: Dynamically provisions ALBs for ingress traffic routing from the edge to Kubernetes services.
 - **Service Mesh (Istio / Linkerd)**: 
   - Provides **mTLS** (mutual TLS) between all microservices to ensure data in transit within the cluster is fully encrypted.
   - Enables advanced traffic routing strategies like Blue-Green and Canary deployments.
@@ -124,8 +126,8 @@ graph TD
 
 ### Security & Governance
 - **AWS IAM with IRSA (IAM Roles for Service Accounts)**: Grants specific Kubernetes Pods least-privilege access to AWS APIs (e.g., an S3 uploader pod only gets access to write to a specific S3 bucket).
-- **AWS KMS (Key Management Service)**: Manages encryption keys used to encrypt all data at rest across EBS, S3, Aurora, and DynamoDB.
-- **AWS Secrets Manager**: Securely stores database passwords, API keys, and third-party integration credentials. Kubernetes External Secrets Operator synchronizes these into the cluster.
+- **Key Management (AWS KMS)**: The central cryptographic hub. **AWS Key Management Service (KMS)** manages the Customer Managed Keys (CMKs) used to encrypt all data at rest across EBS, S3, Aurora, and DynamoDB, which is strictly required for PCI-DSS compliance.
+- **Secret Management (AWS Secrets Manager)**: The secure vault for application secrets (database passwords, API keys). To bridge the gap to Kubernetes, the **External Secrets Operator (ESO)** is deployed in EKS to securely synchronize these AWS secrets directly into Kubernetes memory, ensuring no credentials ever exist in code or Docker images.
 - **Amazon Macie / GuardDuty**: Macie continuously scans S3 for unencrypted PII. GuardDuty provides intelligent threat detection across the AWS account.
 
 ### Observability & APM (Datadog)
